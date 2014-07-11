@@ -23,7 +23,7 @@ func main() {
 	}
 	defer file.Close()
 
-	play(file)
+	GenerateGif(file)
 }
 
 func play(file *os.File) {
