@@ -5,13 +5,19 @@ import (
 	"image/color/palette"
 	"image/gif"
 	"image/png"
+	"io"
 	"log"
 	"os"
 	"os/exec"
 )
 
 // GenerateGif creates gif animation
-func GenerateGif(file *os.File) {
+func GenerateGif(filename string) {
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
 
 	var (
 		prevTv  TimeVal
@@ -20,13 +26,21 @@ func GenerateGif(file *os.File) {
 		delays  []int
 		images  []*image.Paletted
 	)
-	ch := TtyRead(file)
-	for data := range ch {
+	reader := NewTtyReader(file)
+	for {
+		data, err := reader.ReadData()
+		if err != nil {
+			if err == io.EOF {
+				break
+			} else {
+				log.Fatal(err)
+			}
+		}
 		// play
 		if first {
 			first = false
 		} else {
-			diff := data.Header.tv.Subtract(&prevTv)
+			diff := data.Header.tv.Subtract(prevTv)
 			delays = append(delays, int((diff.sec*1000000+diff.usec)/10000))
 		}
 		prevTv = data.Header.tv

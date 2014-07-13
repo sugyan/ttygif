@@ -1,4 +1,4 @@
 go-ttygif
 =========
 
-ttyrec to gif
+ttyrec to animated GIF
