@@ -5,82 +5,85 @@ import (
 	"image/color/palette"
 	"image/gif"
 	"io/ioutil"
-	"log"
 	"os"
 )
 
-// TtyPlayWithCapture type, which is the implementation of TtyPlayer
-type TtyPlayWithCapture struct {
-	images  []*image.Paletted
-	delays  []int
-	tempDir string
+// TtyPlayCaptureProcessor type, which is the implementation of TtyPlayProcessor
+type TtyPlayCaptureProcessor struct {
+	timestamp TimeVal
+	images    []*image.Paletted
+	delays    []int
+	tempDir   string
 }
 
-// GetPlayFunc returns Player func
-func (t *TtyPlayWithCapture) GetPlayFunc() func(*TtyData) {
-	var (
-		first  = true
-		prevTv TimeVal
-	)
-	return func(data *TtyData) {
-		if first {
-			print("\x1b[1;1H\x1b[2J")
-			first = false
-		} else {
-			diff := data.TimeVal.Subtract(prevTv)
-			t.delays = append(t.delays, int((diff.Sec*1000000+diff.Usec)/10000))
-		}
-		print(string(*data.Buffer))
-		prevTv = data.TimeVal
-
-		// capture and append to images
-		img, err := CaptureImage(t.tempDir, data)
-		if err != nil {
-			log.Fatal(err)
-		}
-		paletted := image.NewPaletted(img.Bounds(), palette.WebSafe)
-		for x := paletted.Rect.Min.X; x < paletted.Rect.Max.X; x++ {
-			for y := paletted.Rect.Min.Y; y < paletted.Rect.Max.Y; y++ {
-				paletted.Set(x, y, img.At(x, y))
-			}
-		}
-		t.images = append(t.images, paletted)
+// Process captures and append images
+func (t *TtyPlayCaptureProcessor) Process(diff TimeVal) (err error) {
+	delay := int((diff.Sec*1000000 + diff.Usec) / 10000)
+	if delay == 0 {
+		return nil
 	}
+	t.delays = append(t.delays, delay)
+	t.timestamp = t.timestamp.Add(diff)
+
+	// capture and append to images
+	img, err := CaptureImage(t.tempDir, t.timestamp)
+	if err != nil {
+		return
+	}
+	paletted := image.NewPaletted(img.Bounds(), palette.WebSafe)
+	for x := paletted.Rect.Min.X; x < paletted.Rect.Max.X; x++ {
+		for y := paletted.Rect.Min.Y; y < paletted.Rect.Max.Y; y++ {
+			paletted.Set(x, y, img.At(x, y))
+		}
+	}
+	t.images = append(t.images, paletted)
+	return nil
+}
+
+// NewTtyPlayCaptureProcessor returns TtyPlayCaptureProcessor instance
+func NewTtyPlayCaptureProcessor() (t *TtyPlayCaptureProcessor, err error) {
+	tempDir, err := ioutil.TempDir("", "ttygif")
+	if err != nil {
+		return
+	}
+	return &TtyPlayCaptureProcessor{
+		tempDir: tempDir,
+	}, nil
+}
+
+// RemoveTempDirectory remove tempDir
+func (t *TtyPlayCaptureProcessor) RemoveTempDirectory() (err error) {
+	if err = os.RemoveAll(t.tempDir); err != nil {
+		return
+	}
+	return nil
 }
 
 // GenerateGif creates gif animation
-func GenerateGif(filename string) {
-	tempDir, err := ioutil.TempDir("", "ttygif")
+func GenerateGif(filename string) (err error) {
+	capturer, err := NewTtyPlayCaptureProcessor()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	defer func() {
-		if err := os.RemoveAll(tempDir); err != nil {
-			log.Fatal(err)
-		}
-	}()
+	defer capturer.RemoveTempDirectory()
 
-	capture := &TtyPlayWithCapture{
-		tempDir: tempDir,
-	}
-	TtyPlay(filename, capture)
-
-	// last delay
-	if len(capture.images) > len(capture.delays) {
-		capture.delays = append(capture.delays, 200)
-	}
+	player := NewTtyPlayer()
+	player.Processor(capturer)
+	player.Play(filename)
 
 	outFile, err := os.Create("out.gif")
 	if err != nil {
-		log.Fatal(err)
+		return
 	}
 	defer outFile.Close()
 
-	if err = gif.EncodeAll(outFile, &gif.GIF{
-		Image:     capture.images,
-		Delay:     capture.delays,
+	err = gif.EncodeAll(outFile, &gif.GIF{
+		Image:     capturer.images,
+		Delay:     capturer.delays,
 		LoopCount: -1,
-	}); err != nil {
-		log.Fatal(err)
+	})
+	if err != nil {
+		return
 	}
+	return nil
 }

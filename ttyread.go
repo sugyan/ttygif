@@ -7,8 +7,22 @@ import (
 
 // TimeVal type
 type TimeVal struct {
-	Sec  uint32
-	Usec uint32
+	Sec  int32
+	Usec int32
+}
+
+// Add returns sum of TimeVal data
+func (tv1 TimeVal) Add(tv2 TimeVal) TimeVal {
+	sec := tv1.Sec + tv2.Sec
+	usec := tv1.Usec + tv2.Usec
+	for usec >= 1000000 {
+		sec++
+		usec -= 1000000
+	}
+	return TimeVal{
+		Sec:  sec,
+		Usec: usec,
+	}
 }
 
 // Subtract returns diff of TimeVal data
@@ -62,8 +76,8 @@ func (r *TtyReader) ReadData() (data *TtyData, err error) {
 
 	header := &Header{
 		tv: TimeVal{
-			Sec:  r.order.Uint32(bufHeader[0:4]),
-			Usec: r.order.Uint32(bufHeader[4:8]),
+			Sec:  int32(r.order.Uint32(bufHeader[0:4])),
+			Usec: int32(r.order.Uint32(bufHeader[4:8])),
 		},
 		len: r.order.Uint32(bufHeader[8:12]),
 	}

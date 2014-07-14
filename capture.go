@@ -11,7 +11,7 @@ import (
 
 // CaptureImage take a screen shot of terminal
 // TODO: Linux
-func CaptureImage(dir string, data *TtyData) (img image.Image, err error) {
+func CaptureImage(dir string, tv TimeVal) (img image.Image, err error) {
 	// TODO: Terminal/iTerm only?
 	var program string
 	switch os.Getenv("TERM_PROGRAM") {
@@ -31,7 +31,7 @@ func CaptureImage(dir string, data *TtyData) (img image.Image, err error) {
 	}
 	// get screen capture
 	// TODO: resize image if high resolution (retina display)
-	filename := filepath.Join(dir, fmt.Sprintf("%d_%d.png", data.TimeVal.Sec, data.TimeVal.Usec))
+	filename := filepath.Join(dir, fmt.Sprintf("%03d_%06d.png", tv.Sec, tv.Usec))
 	if err = exec.Command("screencapture", "-l", string(windowID), "-o", "-m", "-t", "png", filename).Run(); err != nil {
 		return
 	}
