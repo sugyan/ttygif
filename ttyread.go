@@ -1,4 +1,4 @@
-package main
+package ttygif
 
 import (
 	"encoding/binary"
@@ -7,21 +7,21 @@ import (
 
 // TimeVal type
 type TimeVal struct {
-	sec  uint32
-	usec uint32
+	Sec  uint32
+	Usec uint32
 }
 
 // Subtract returns diff of TimeVal data
 func (tv1 TimeVal) Subtract(tv2 TimeVal) TimeVal {
-	sec := tv1.sec - tv2.sec
-	usec := tv1.usec - tv2.usec
+	sec := tv1.Sec - tv2.Sec
+	usec := tv1.Usec - tv2.Usec
 	if usec < 0 {
 		sec--
 		usec += 1000000
 	}
 	return TimeVal{
-		sec:  sec,
-		usec: usec,
+		Sec:  sec,
+		Usec: usec,
 	}
 }
 
@@ -33,8 +33,8 @@ type Header struct {
 
 // TtyData type
 type TtyData struct {
-	Header *Header
-	Buffer *[]byte
+	TimeVal TimeVal
+	Buffer  *[]byte
 }
 
 // TtyReader type
@@ -61,8 +61,8 @@ func (r *TtyReader) ReadData() (data *TtyData, err error) {
 
 	header := &Header{
 		tv: TimeVal{
-			sec:  r.order.Uint32(bufHeader[0:4]),
-			usec: r.order.Uint32(bufHeader[4:8]),
+			Sec:  r.order.Uint32(bufHeader[0:4]),
+			Usec: r.order.Uint32(bufHeader[4:8]),
 		},
 		len: r.order.Uint32(bufHeader[8:12]),
 	}
@@ -73,7 +73,7 @@ func (r *TtyReader) ReadData() (data *TtyData, err error) {
 		return
 	}
 	return &TtyData{
-		Header: header,
-		Buffer: &bufBody,
+		TimeVal: header.tv,
+		Buffer:  &bufBody,
 	}, nil
 }

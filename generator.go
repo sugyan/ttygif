@@ -1,4 +1,4 @@
-package main
+package ttygif
 
 import (
 	"image"
@@ -6,9 +6,9 @@ import (
 	"image/gif"
 	"image/png"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 )
 
 // GenerateGif creates gif animation
@@ -20,12 +20,16 @@ func GenerateGif(filename string) {
 	defer file.Close()
 
 	var (
-		prevTv  TimeVal
-		first   = true
-		tmpfile = "out.png"
-		delays  []int
-		images  []*image.Paletted
+		prevTv TimeVal
+		first  = true
+		delays []int
+		images []*image.Paletted
 	)
+	tempDir, err := ioutil.TempDir("", "ttygif")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	reader := NewTtyReader(file)
 	for {
 		data, err := reader.ReadData()
@@ -40,29 +44,26 @@ func GenerateGif(filename string) {
 		if first {
 			first = false
 		} else {
-			diff := data.Header.tv.Subtract(prevTv)
-			delays = append(delays, int((diff.sec*1000000+diff.usec)/10000))
+			diff := data.TimeVal.Subtract(prevTv)
+			delays = append(delays, int((diff.Sec*1000000+diff.Usec)/10000))
 		}
-		prevTv = data.Header.tv
+		prevTv = data.TimeVal
 		print(string(*data.Buffer))
 
-		// screen capture (for Mac)
-		windowID, err := exec.Command("osascript", "-e", "tell app \"iTerm\" to id of window 1").Output()
+		imageFile, err := CaptureImage(tempDir, data)
 		if err != nil {
-			log.Fatal(err)
-		}
-		if err := exec.Command("screencapture", "-l", string(windowID), "-o", "-m", tmpfile).Run(); err != nil {
 			log.Fatal(err)
 		}
 
 		// read file
-		file, err := os.Open(tmpfile)
+		file, err := os.Open(imageFile)
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer file.Close()
 		img, err := png.Decode(file)
 		// add image
+		// TODO: concurrently?
 		p := image.NewPaletted(img.Bounds(), palette.WebSafe)
 		for x := p.Rect.Min.X; x < p.Rect.Max.X; x++ {
 			for y := p.Rect.Min.Y; y < p.Rect.Max.Y; y++ {
@@ -71,6 +72,12 @@ func GenerateGif(filename string) {
 		}
 		images = append(images, p)
 	}
+	// remove temp images
+	if err := os.RemoveAll(tempDir); err != nil {
+		log.Fatal(err)
+	}
+
+	// create animated GIF
 	if len(images) > len(delays) {
 		delays = append(delays, 200)
 	}
