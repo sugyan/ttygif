@@ -4,82 +4,70 @@ import (
 	"image"
 	"image/color/palette"
 	"image/gif"
-	"image/png"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
 )
 
+// TtyPlayWithCapture type, which is the implementation of TtyPlayer
+type TtyPlayWithCapture struct {
+	images  []*image.Paletted
+	delays  []int
+	tempDir string
+}
+
+// GetPlayFunc returns Player func
+func (t *TtyPlayWithCapture) GetPlayFunc() func(*TtyData) {
+	var (
+		first  = true
+		prevTv TimeVal
+	)
+	return func(data *TtyData) {
+		if first {
+			print("\x1b[1;1H\x1b[2J")
+			first = false
+		} else {
+			diff := data.TimeVal.Subtract(prevTv)
+			t.delays = append(t.delays, int((diff.Sec*1000000+diff.Usec)/10000))
+		}
+		print(string(*data.Buffer))
+		prevTv = data.TimeVal
+
+		// capture and append to images
+		img, err := CaptureImage(t.tempDir, data)
+		if err != nil {
+			log.Fatal(err)
+		}
+		paletted := image.NewPaletted(img.Bounds(), palette.WebSafe)
+		for x := paletted.Rect.Min.X; x < paletted.Rect.Max.X; x++ {
+			for y := paletted.Rect.Min.Y; y < paletted.Rect.Max.Y; y++ {
+				paletted.Set(x, y, img.At(x, y))
+			}
+		}
+		t.images = append(t.images, paletted)
+	}
+}
+
 // GenerateGif creates gif animation
 func GenerateGif(filename string) {
-	file, err := os.Open(filename)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
-	var (
-		prevTv TimeVal
-		first  = true
-		delays []int
-		images []*image.Paletted
-	)
 	tempDir, err := ioutil.TempDir("", "ttygif")
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	reader := NewTtyReader(file)
-	for {
-		data, err := reader.ReadData()
-		if err != nil {
-			if err == io.EOF {
-				break
-			} else {
-				log.Fatal(err)
-			}
-		}
-		// play
-		if first {
-			first = false
-		} else {
-			diff := data.TimeVal.Subtract(prevTv)
-			delays = append(delays, int((diff.Sec*1000000+diff.Usec)/10000))
-		}
-		prevTv = data.TimeVal
-		print(string(*data.Buffer))
-
-		imageFile, err := CaptureImage(tempDir, data)
-		if err != nil {
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
 			log.Fatal(err)
 		}
+	}()
 
-		// read file
-		file, err := os.Open(imageFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer file.Close()
-		img, err := png.Decode(file)
-		// add image
-		// TODO: concurrently?
-		p := image.NewPaletted(img.Bounds(), palette.WebSafe)
-		for x := p.Rect.Min.X; x < p.Rect.Max.X; x++ {
-			for y := p.Rect.Min.Y; y < p.Rect.Max.Y; y++ {
-				p.Set(x, y, img.At(x, y))
-			}
-		}
-		images = append(images, p)
+	capture := &TtyPlayWithCapture{
+		tempDir: tempDir,
 	}
-	// remove temp images
-	if err := os.RemoveAll(tempDir); err != nil {
-		log.Fatal(err)
-	}
+	TtyPlay(filename, capture)
 
-	// create animated GIF
-	if len(images) > len(delays) {
-		delays = append(delays, 200)
+	// last delay
+	if len(capture.images) > len(capture.delays) {
+		capture.delays = append(capture.delays, 200)
 	}
 
 	outFile, err := os.Create("out.gif")
@@ -87,9 +75,10 @@ func GenerateGif(filename string) {
 		log.Fatal(err)
 	}
 	defer outFile.Close()
+
 	if err = gif.EncodeAll(outFile, &gif.GIF{
-		Image:     images,
-		Delay:     delays,
+		Image:     capture.images,
+		Delay:     capture.delays,
 		LoopCount: -1,
 	}); err != nil {
 		log.Fatal(err)

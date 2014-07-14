@@ -53,6 +53,7 @@ func NewTtyReader(r io.Reader) *TtyReader {
 
 // ReadData returns next TtyData
 func (r *TtyReader) ReadData() (data *TtyData, err error) {
+	// 4byte x 3 ?
 	bufHeader := make([]byte, 12)
 	_, err = r.reader.Read(bufHeader)
 	if err != nil {
