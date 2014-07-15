@@ -5,6 +5,7 @@ import (
 	"github.com/sugyan/ttygif"
 	"log"
 	"os"
+	"runtime"
 )
 
 func init() {
@@ -12,6 +13,9 @@ func init() {
 }
 
 func main() {
+	cpus := runtime.NumCPU()
+	runtime.GOMAXPROCS(cpus)
+
 	if len(os.Args) < 2 {
 		fmt.Printf("usage: %s <ttyrec file>\n", os.Args[0])
 		os.Exit(1)

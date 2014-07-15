@@ -5,23 +5,30 @@ import (
 	"github.com/sugyan/ttygif/image/xwd"
 	"image"
 	"image/png"
+	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 )
+
+// CapturedImage type
+type CapturedImage struct {
+	path    string
+	decoder func(r io.Reader) (image.Image, error)
+}
 
 // CaptureImage take a screen shot of terminal
 // TODO: Terminal/iTerm or X-Window only?
-func CaptureImage(dir string, filename string) (image.Image, error) {
+func CaptureImage(path string) (result *CapturedImage, err error) {
 	switch os.Getenv("WINDOWID") {
 	case "":
-		return captureByScreencapture(dir, filename)
+		return captureByScreencapture(path)
 	default:
-		return captureByXwd(dir, filename)
+		return captureByXwd(path)
 	}
 }
 
-func captureByScreencapture(dir string, filename string) (img image.Image, err error) {
+// func captureByScreencapture(dir string, filename string) (img image.Image, err error) {
+func captureByScreencapture(path string) (result *CapturedImage, err error) {
 	var program string
 	switch os.Getenv("TERM_PROGRAM") {
 	case "iTerm.app":
@@ -40,40 +47,21 @@ func captureByScreencapture(dir string, filename string) (img image.Image, err e
 	}
 	// get screen capture
 	// TODO: resize image if high resolution (retina display)
-	path := filepath.Join(dir, filename)
 	if err = exec.Command("screencapture", "-l", string(windowID), "-o", "-m", "-t", "png", path).Run(); err != nil {
 		return
 	}
-
-	// open saved capture image
-	file, err := os.Open(path)
-	if err != nil {
-		return
-	}
-	defer file.Close()
-
-	img, err = png.Decode(file)
-	if err != nil {
-		return
-	}
-	return img, nil
+	return &CapturedImage{
+		path:    path,
+		decoder: png.Decode,
+	}, nil
 }
 
-func captureByXwd(dir string, filename string) (img image.Image, err error) {
-	path := filepath.Join(dir, filename)
+func captureByXwd(path string) (result *CapturedImage, err error) {
 	if err = exec.Command("xwd", "-id", os.Getenv("WINDOWID"), "-out", path).Run(); err != nil {
 		return
 	}
-	// open saved capture image
-	file, err := os.Open(path)
-	if err != nil {
-		return
-	}
-	defer file.Close()
-
-	img, err = xwd.Decode(file)
-	if err != nil {
-		return
-	}
-	return img, nil
+	return &CapturedImage{
+		path:    path,
+		decoder: xwd.Decode,
+	}, nil
 }
