@@ -16,7 +16,11 @@ func main() {
 		fmt.Printf("usage: %s <ttyrec file>\n", os.Args[0])
 		os.Exit(1)
 	}
-	if err := ttygif.GenerateGif(os.Args[1]); err != nil {
+
+	generator := ttygif.NewGifGenerator()
+	generator.Speed(1.0)
+	err := generator.Generate(os.Args[1], "out.gif")
+	if err != nil {
 		log.Fatal(err)
 	}
 	/* play only */

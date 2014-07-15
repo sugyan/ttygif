@@ -2,6 +2,7 @@ package ttygif
 
 import (
 	"fmt"
+	"github.com/sugyan/ttygif/image/xwd"
 	"image"
 	"image/png"
 	"os"
@@ -10,9 +11,17 @@ import (
 )
 
 // CaptureImage take a screen shot of terminal
-// TODO: Linux
-func CaptureImage(dir string, tv TimeVal) (img image.Image, err error) {
-	// TODO: Terminal/iTerm only?
+// TODO: Terminal/iTerm or X-Window only?
+func CaptureImage(dir string, filename string) (image.Image, error) {
+	switch os.Getenv("WINDOWID") {
+	case "":
+		return captureByScreencapture(dir, filename)
+	default:
+		return captureByXwd(dir, filename)
+	}
+}
+
+func captureByScreencapture(dir string, filename string) (img image.Image, err error) {
 	var program string
 	switch os.Getenv("TERM_PROGRAM") {
 	case "iTerm.app":
@@ -31,19 +40,38 @@ func CaptureImage(dir string, tv TimeVal) (img image.Image, err error) {
 	}
 	// get screen capture
 	// TODO: resize image if high resolution (retina display)
-	filename := filepath.Join(dir, fmt.Sprintf("%03d_%06d.png", tv.Sec, tv.Usec))
-	if err = exec.Command("screencapture", "-l", string(windowID), "-o", "-m", "-t", "png", filename).Run(); err != nil {
+	path := filepath.Join(dir, filename)
+	if err = exec.Command("screencapture", "-l", string(windowID), "-o", "-m", "-t", "png", path).Run(); err != nil {
 		return
 	}
 
 	// open saved capture image
-	file, err := os.Open(filename)
+	file, err := os.Open(path)
 	if err != nil {
 		return
 	}
 	defer file.Close()
 
 	img, err = png.Decode(file)
+	if err != nil {
+		return
+	}
+	return img, nil
+}
+
+func captureByXwd(dir string, filename string) (img image.Image, err error) {
+	path := filepath.Join(dir, filename)
+	if err = exec.Command("xwd", "-id", os.Getenv("WINDOWID"), "-out", path).Run(); err != nil {
+		return
+	}
+	// open saved capture image
+	file, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	img, err = xwd.Decode(file)
 	if err != nil {
 		return
 	}
