@@ -49,6 +49,7 @@ func (player *TtyPlayer) Play(filename string) (err error) {
 		return
 	}
 	defer file.Close()
+	defer clearScreen()
 
 	var (
 		first  = true
@@ -68,7 +69,7 @@ func (player *TtyPlayer) Play(filename string) (err error) {
 
 		var diff TimeVal
 		if first {
-			print("\x1b[1;1H\x1b[2J")
+			clearScreen()
 			first = false
 		} else {
 			diff = data.TimeVal.Subtract(prevTv)
@@ -82,4 +83,8 @@ func (player *TtyPlayer) Play(filename string) (err error) {
 		print(string(*data.Buffer))
 	}
 	return nil
+}
+
+func clearScreen() {
+	print("\x1b[1;1H\x1b[2J")
 }
