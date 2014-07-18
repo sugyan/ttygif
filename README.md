@@ -5,13 +5,11 @@ ttyrec to animated GIF
 
 ![](https://cloud.githubusercontent.com/assets/80381/3628176/6569016e-0e91-11e4-9b0d-6bbfd46a6d32.gif)
 
-![](https://cloud.githubusercontent.com/assets/80381/3628203/baa38c58-0e91-11e4-9ffd-8c3bc2b72768.gif)
 
-
-ttyrec
+About ttyrec
 ------
 
-[http://0xcc.net/ttyrec/](http://0xcc.net/ttyrec/)
+see [http://0xcc.net/ttyrec/](http://0xcc.net/ttyrec/).
 
 
 Installation
