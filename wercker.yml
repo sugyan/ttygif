@@ -1,0 +1,42 @@
+box: sugyan/goxc-build@0.0.1
+build:
+  steps:
+    - setup-go-workspace
+    - script:
+        name: git version
+        code: |
+          git version
+    - script:
+        name: go get
+        code: |
+          go version
+          go get -t ./...
+    - script:
+        name: go test
+        code: |
+          go test ./...
+    - script:
+        name: goxc build & archive
+        code: |
+          goxc -tasks='xc archive' -bc 'linux darwin' -d $WERCKER_OUTPUT_DIR/ -resources-include='README*' -n ttygif
+deploy:
+  steps:
+    - script:
+        name: release tag
+        code: |
+          export RELEASE_TAG=0.0.1
+    - wercker/github-create-release:
+        token: $GITHUB_TOKEN
+        tag: $RELEASE_TAG
+    - wercker/github-upload-asset:
+        token: $GITHUB_TOKEN
+        file: snapshot/zenrize_linux_386.tar.gz
+    - wercker/github-upload-asset:
+        token: $GITHUB_TOKEN
+        file: snapshot/zenrize_linux_amd64.tar.gz
+    - wercker/github-upload-asset:
+        token: $GITHUB_TOKEN
+        file: snapshot/zenrize_darwin_386.zip
+    - wercker/github-upload-asset:
+        token: $GITHUB_TOKEN
+        file: snapshot/zenrize_darwin_amd64.zip
