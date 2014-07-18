@@ -2,23 +2,13 @@ package ttygif
 
 import (
 	"fmt"
-	"github.com/sugyan/ttygif/image/xwd"
-	"image"
-	"image/png"
-	"io"
 	"os"
 	"os/exec"
 )
 
-// CapturedImage type
-type CapturedImage struct {
-	path    string
-	decoder func(r io.Reader) (image.Image, error)
-}
-
 // CaptureImage take a screen shot of terminal
 // TODO: Terminal/iTerm or X-Window only?
-func CaptureImage(path string) (result *CapturedImage, err error) {
+func CaptureImage(path string) (string, error) {
 	switch os.Getenv("WINDOWID") {
 	case "":
 		return captureByScreencapture(path)
@@ -28,7 +18,7 @@ func CaptureImage(path string) (result *CapturedImage, err error) {
 }
 
 // func captureByScreencapture(dir string, filename string) (img image.Image, err error) {
-func captureByScreencapture(path string) (result *CapturedImage, err error) {
+func captureByScreencapture(path string) (fileType string, err error) {
 	var program string
 	switch os.Getenv("TERM_PROGRAM") {
 	case "iTerm.app":
@@ -36,7 +26,7 @@ func captureByScreencapture(path string) (result *CapturedImage, err error) {
 	case "Apple_Terminal":
 		program = "Terminal"
 	default:
-		return nil, fmt.Errorf("Can't get TERM_PROGRAM")
+		return "", fmt.Errorf("Can't get TERM_PROGRAM")
 	}
 	// get window id
 	windowID, err := exec.Command("osascript", "-e",
@@ -47,21 +37,17 @@ func captureByScreencapture(path string) (result *CapturedImage, err error) {
 	}
 	// get screen capture
 	// TODO: resize image if high resolution (retina display)
-	if err = exec.Command("screencapture", "-l", string(windowID), "-o", "-m", "-t", "png", path).Run(); err != nil {
+	err = exec.Command("screencapture", "-l", string(windowID), "-o", "-m", "-t", "png", path).Run()
+	if err != nil {
 		return
 	}
-	return &CapturedImage{
-		path:    path,
-		decoder: png.Decode,
-	}, nil
+	return "png", nil
 }
 
-func captureByXwd(path string) (result *CapturedImage, err error) {
-	if err = exec.Command("xwd", "-id", os.Getenv("WINDOWID"), "-out", path).Run(); err != nil {
+func captureByXwd(path string) (fileType string, err error) {
+	err = exec.Command("xwd", "-id", os.Getenv("WINDOWID"), "-out", path).Run()
+	if err != nil {
 		return
 	}
-	return &CapturedImage{
-		path:    path,
-		decoder: xwd.Decode,
-	}, nil
+	return "xwd", nil
 }

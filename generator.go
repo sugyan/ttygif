@@ -2,21 +2,18 @@ package ttygif
 
 import (
 	"fmt"
-	"image"
-	"image/color/palette"
 	"image/gif"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 )
 
 // TtyPlayCaptureProcessor type, which is the implementation of TtyPlayProcessor
 type TtyPlayCaptureProcessor struct {
 	timestamp TimeVal
-	captured  []*CapturedImage
 	delays    []int
 	tempDir   string
+	worker    *Worker
 	speed     float32
 }
 
@@ -31,11 +28,11 @@ func (t *TtyPlayCaptureProcessor) Process(diff TimeVal) (err error) {
 
 	// capture and append to images
 	imgPath := filepath.Join(t.tempDir, fmt.Sprintf("%03d_%06d", t.timestamp.Sec, t.timestamp.Usec))
-	captured, err := CaptureImage(imgPath)
+	fileType, err := CaptureImage(imgPath)
 	if err != nil {
 		return
 	}
-	t.captured = append(t.captured, captured)
+	t.worker.AddTargetFile(imgPath, fileType)
 	return nil
 }
 
@@ -48,6 +45,7 @@ func NewTtyPlayCaptureProcessor(speed float32) (t *TtyPlayCaptureProcessor, err 
 	return &TtyPlayCaptureProcessor{
 		tempDir: tempDir,
 		speed:   speed,
+		worker:  NewWorker(),
 	}, nil
 }
 
@@ -57,39 +55,6 @@ func (t *TtyPlayCaptureProcessor) RemoveTempDirectory() (err error) {
 		return
 	}
 	return nil
-}
-
-// GetPalettedImages returns paletted images from saved capture images
-func (t *TtyPlayCaptureProcessor) GetPalettedImages() (images []*image.Paletted, err error) {
-	w := sync.WaitGroup{}
-	images = make([]*image.Paletted, len(t.captured))
-	for ii, cc := range t.captured {
-		w.Add(1)
-		go func(i int, captured *CapturedImage) {
-			defer w.Done()
-			// open image
-			var file *os.File
-			file, err = os.Open(captured.path)
-			if err != nil {
-				return
-			}
-			defer file.Close()
-			// decode
-			var img image.Image
-			img, err = captured.decoder(file)
-			if err != nil {
-				return
-			}
-			images[i] = image.NewPaletted(img.Bounds(), palette.WebSafe)
-			for x := images[i].Rect.Min.X; x < images[i].Rect.Max.X; x++ {
-				for y := images[i].Rect.Min.Y; y < images[i].Rect.Max.Y; y++ {
-					images[i].Set(x, y, img.At(x, y))
-				}
-			}
-		}(ii, cc)
-	}
-	w.Wait()
-	return images, nil
 }
 
 // GifGenerator type
@@ -107,31 +72,33 @@ func (g *GifGenerator) Speed(speed float32) {
 	g.speed = speed
 }
 
-// Generate creates gif animation
+// Generate writes to outFile an animated GIF
 func (g *GifGenerator) Generate(inFile string, outFile string) (err error) {
 	capturer, err := NewTtyPlayCaptureProcessor(g.speed)
 	if err != nil {
 		return err
 	}
 	defer capturer.RemoveTempDirectory()
-
+	// play and capture
 	player := NewTtyPlayer()
 	player.Processor(capturer)
 	err = player.Play(inFile)
 	if err != nil {
 		return
 	}
-	images, err := capturer.GetPalettedImages()
+	// get paletted images from capture fiels
+	print("generating...")
+	images, err := capturer.worker.GetAllImages()
 	if err != nil {
 		return
 	}
-
+	println()
+	// generate GIF file
 	file, err := os.Create(outFile)
 	if err != nil {
 		return
 	}
 	defer file.Close()
-
 	err = gif.EncodeAll(file, &gif.GIF{
 		Image:     images,
 		Delay:     capturer.delays,

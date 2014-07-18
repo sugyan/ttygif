@@ -9,12 +9,11 @@ import (
 )
 
 func init() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 
 func main() {
-	cpus := runtime.NumCPU()
-	runtime.GOMAXPROCS(cpus)
 
 	if len(os.Args) < 2 {
 		fmt.Printf("usage: %s <ttyrec file>\n", os.Args[0])
@@ -27,6 +26,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Println("Finished!")
 	/* play only */
 	// player := ttygif.NewTtyPlayer()
 	// player.Play(os.Args[1])
