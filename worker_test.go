@@ -9,7 +9,12 @@ func TestWorker(t *testing.T) {
 	worker.AddTargetFile("./test_data/test.png", "png")
 	worker.AddTargetFile("./test_data/test.xwd", "xwd")
 
-	images, err := worker.GetAllImages()
+	progress := make(chan struct{})
+	go func() {
+		for _ = range progress {
+		}
+	}()
+	images, err := worker.GetAllImages(progress)
 	if err != nil {
 		t.Error(err)
 	}
