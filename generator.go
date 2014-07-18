@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // TtyPlayCaptureProcessor type, which is the implementation of TtyPlayProcessor
@@ -14,12 +15,12 @@ type TtyPlayCaptureProcessor struct {
 	delays    []int
 	tempDir   string
 	worker    *Worker
-	speed     float32
+	speed     float64
 }
 
 // Process captures and append images
 func (t *TtyPlayCaptureProcessor) Process(diff TimeVal) (err error) {
-	delay := int(float32(diff.Sec*1000000+diff.Usec)/t.speed) / 10000
+	delay := int(float64(diff.Sec*1000000+diff.Usec)/t.speed) / 10000
 	if delay == 0 {
 		return nil
 	}
@@ -37,7 +38,7 @@ func (t *TtyPlayCaptureProcessor) Process(diff TimeVal) (err error) {
 }
 
 // NewTtyPlayCaptureProcessor returns TtyPlayCaptureProcessor instance
-func NewTtyPlayCaptureProcessor(speed float32) (t *TtyPlayCaptureProcessor, err error) {
+func NewTtyPlayCaptureProcessor(speed float64) (t *TtyPlayCaptureProcessor, err error) {
 	tempDir, err := ioutil.TempDir("", "ttygif")
 	if err != nil {
 		return
@@ -59,7 +60,7 @@ func (t *TtyPlayCaptureProcessor) RemoveTempDirectory() (err error) {
 
 // GifGenerator type
 type GifGenerator struct {
-	speed float32
+	speed float64
 }
 
 // NewGifGenerator returns GifGenerator instance
@@ -68,7 +69,7 @@ func NewGifGenerator() *GifGenerator {
 }
 
 // Speed sets the speed
-func (g *GifGenerator) Speed(speed float32) {
+func (g *GifGenerator) Speed(speed float64) {
 	g.speed = speed
 }
 
@@ -87,12 +88,26 @@ func (g *GifGenerator) Generate(inFile string, outFile string) (err error) {
 		return
 	}
 	// get paletted images from capture fiels
-	print("generating...")
-	images, err := capturer.worker.GetAllImages()
+	progress := make(chan struct{})
+	go func() {
+	Loop:
+		for {
+			select {
+			case _, ok := <-progress:
+				if !ok {
+					break Loop
+				}
+				print(".")
+			case <-time.After(time.Second):
+				print(".")
+			}
+		}
+		print("\r")
+	}()
+	images, err := capturer.worker.GetAllImages(progress)
 	if err != nil {
 		return
 	}
-	println()
 	// generate GIF file
 	file, err := os.Create(outFile)
 	if err != nil {

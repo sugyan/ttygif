@@ -1,33 +1,40 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/sugyan/ttygif"
-	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 )
 
 func init() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 
 func main() {
-
-	if len(os.Args) < 2 {
-		fmt.Printf("usage: %s <ttyrec file>\n", os.Args[0])
-		os.Exit(1)
+	input := flag.String("in", "ttyrecord", "input ttyrec file")
+	output := flag.String("out", "tty.gif", "output gif file")
+	speed := flag.Float64("s", 1.0, "play speed")
+	help := flag.Bool("help", false, "usage")
+	flag.Parse()
+	if *help {
+		flag.Usage()
+		os.Exit(0)
 	}
 
 	generator := ttygif.NewGifGenerator()
-	generator.Speed(1.0)
-	err := generator.Generate(os.Args[1], "out.gif")
+	generator.Speed(*speed)
+	err := generator.Generate(*input, *output)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
-	log.Println("Finished!")
-	/* play only */
-	// player := ttygif.NewTtyPlayer()
-	// player.Play(os.Args[1])
+	absPath, err := filepath.Abs(*output)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Printf("%s created!\n", absPath)
 }

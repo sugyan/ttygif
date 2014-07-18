@@ -46,9 +46,12 @@ func (w *Worker) AddTargetFile(filePath string, fileType string) {
 }
 
 // GetAllImages waits and returns all images
-func (w *Worker) GetAllImages() ([]*image.Paletted, error) {
+func (w *Worker) GetAllImages(progress chan<- struct{}) ([]*image.Paletted, error) {
 	done := make(chan struct{})
-	defer close(done)
+	defer func() {
+		close(done)
+		close(progress)
+	}()
 	inputs, errc := w.getInputChannel(done)
 	output := make(chan *WorkerOutput)
 
@@ -80,6 +83,7 @@ Loop:
 				return nil, output.err
 			}
 			results[output.index] = output.paletted
+			progress <- struct{}{}
 		case err := <-errc:
 			if err != nil {
 				return nil, err
