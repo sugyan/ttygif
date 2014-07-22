@@ -9,6 +9,8 @@ import (
 	"runtime"
 )
 
+var version = "0.0.2"
+
 func init() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 }
@@ -18,9 +20,14 @@ func main() {
 	output := flag.String("out", "tty.gif", "output gif file")
 	speed := flag.Float64("s", 1.0, "play speed")
 	help := flag.Bool("help", false, "usage")
+	v := flag.Bool("v", false, "version")
 	flag.Parse()
 	if *help {
 		flag.Usage()
+		os.Exit(0)
+	}
+	if *v {
+		fmt.Println(version)
 		os.Exit(0)
 	}
 
