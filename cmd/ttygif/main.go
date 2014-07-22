@@ -1,12 +1,15 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/sugyan/ttygif"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
 var version = "0.0.2"
@@ -31,9 +34,16 @@ func main() {
 		os.Exit(0)
 	}
 
+	err := validateInputFile(*input)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "input error:", err)
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	generator := ttygif.NewGifGenerator()
 	generator.Speed(*speed)
-	err := generator.Generate(*input, *output)
+	err = generator.Generate(*input, *output)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -44,4 +54,32 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("%s created!\n", absPath)
+}
+
+func validateInputFile(filename string) (err error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	var timestamp int32
+	now := time.Now()
+	reader := ttygif.NewTtyReader(file)
+	for {
+		var data *ttygif.TtyData
+		data, err = reader.ReadData()
+		if err != nil {
+			if err == io.EOF {
+				break
+			} else {
+				return
+			}
+		}
+		if data.TimeVal.Sec > int32(now.Unix()) || data.TimeVal.Sec < timestamp {
+			return errors.New("invalid file")
+		}
+		timestamp = data.TimeVal.Sec
+	}
+	return nil
 }
