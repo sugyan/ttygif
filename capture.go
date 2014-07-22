@@ -55,6 +55,10 @@ func captureByScreencapture(path string) (fileType string, err error) {
 		if err != nil {
 			return
 		}
+		err = sips.Wait()
+		if err != nil {
+			return
+		}
 		str := string(output)
 		result, err = strconv.ParseFloat(str[:len(str)-1], 32)
 		if err != nil {
