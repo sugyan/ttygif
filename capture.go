@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"time"
 )
 
 // CaptureImage take a screen shot of terminal
@@ -98,6 +99,7 @@ func captureByScreencapture(path string) (fileType string, err error) {
 }
 
 func captureByXwd(path string) (fileType string, err error) {
+	time.Sleep(time.Millisecond * 10)
 	err = exec.Command("xwd", "-id", os.Getenv("WINDOWID"), "-out", path).Run()
 	if err != nil {
 		return
