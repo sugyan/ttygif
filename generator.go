@@ -77,7 +77,7 @@ func (g *GifGenerator) Speed(speed float64) {
 func (g *GifGenerator) Generate(inFile string, outFile string) (err error) {
 	capturer, err := NewTtyPlayCaptureProcessor(g.speed)
 	if err != nil {
-		return err
+		return
 	}
 	defer capturer.RemoveTempDirectory()
 	// play and capture

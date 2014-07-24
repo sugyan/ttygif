@@ -99,10 +99,22 @@ func captureByScreencapture(path string) (fileType string, err error) {
 }
 
 func captureByXwd(path string) (fileType string, err error) {
-	time.Sleep(time.Millisecond * 10)
-	err = exec.Command("xwd", "-id", os.Getenv("WINDOWID"), "-out", path).Run()
+	out, err := exec.Command("which", "xwd").CombinedOutput()
 	if err != nil {
-		return
+		return "", fmt.Errorf(string(out))
 	}
-	return "xwd", nil
+
+	var success = false
+	for i := 0; i < 10; i++ {
+		err = exec.Command("xwd", "-id", os.Getenv("WINDOWID"), "-out", path).Run()
+		if err == nil {
+			success = true
+			break
+		}
+		time.Sleep(time.Millisecond * 100)
+	}
+	if success {
+		return "xwd", nil
+	}
+	return
 }
