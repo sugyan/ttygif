@@ -28,7 +28,7 @@ func captureByScreencapture(path string) (fileType string, err error) {
 	case "Apple_Terminal":
 		program = "Terminal"
 	default:
-		return "", fmt.Errorf("Can't get TERM_PROGRAM")
+		return "", fmt.Errorf("cannot get screenshot")
 	}
 	// get window id
 	windowID, err := exec.Command("osascript", "-e",
