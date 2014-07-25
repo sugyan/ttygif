@@ -6,9 +6,9 @@ import (
 	"code.google.com/p/freetype-go/freetype/truetype"
 	"flag"
 	"fmt"
+	"github.com/errnoh/term.color"
 	"github.com/sugyan/ttygif"
 	"image"
-	"image/color"
 	"image/color/palette"
 	"image/draw"
 	"image/gif"
@@ -17,26 +17,6 @@ import (
 	"j4k.co/terminal"
 	"os"
 	"path/filepath"
-)
-
-// colors
-var (
-	TerminalColorRed          = color.RGBA{0xff, 0x00, 0x00, 0xff}
-	TerminalColorGreen        = color.RGBA{0x00, 0xff, 0x00, 0xff}
-	TerminalColorBlue         = color.RGBA{0x00, 0x00, 0xff, 0xff}
-	TerminalColorYellow       = color.RGBA{0xff, 0xff, 0x00, 0xff}
-	TerminalColorMagenta      = color.RGBA{0xff, 0x00, 0xff, 0xff}
-	TerminalColorCyan         = color.RGBA{0x00, 0xff, 0xff, 0xff}
-	TerminalColorLightGrey    = color.RGBA{0xcc, 0xcc, 0xcc, 0xff}
-	TerminalColorDarkGrey     = color.RGBA{0x99, 0x99, 0x99, 0xff}
-	TerminalColorLightRed     = color.RGBA{0xff, 0x33, 0x33, 0xff}
-	TerminalColorLightGreen   = color.RGBA{0x33, 0xff, 0x33, 0xff}
-	TerminalColorLightYellow  = color.RGBA{0xff, 0xff, 0x33, 0xff}
-	TerminalColorLightBlue    = color.RGBA{0x33, 0x33, 0xff, 0xff}
-	TerminalColorLightMagenta = color.RGBA{0xff, 0x33, 0xff, 0xff}
-	TerminalColorLightCyan    = color.RGBA{0x33, 0xff, 0xff, 0xff}
-	TerminalColorWhite        = color.RGBA{0xff, 0xff, 0xff, 0xff}
-	TerminalColorGray         = color.RGBA{0x7f, 0x7f, 0x7f, 0x7f}
 )
 
 var font *truetype.Font
@@ -160,83 +140,16 @@ func capture(state *terminal.State) (paletted *image.Paletted, err error) {
 		for col := 0; col < 80; col++ {
 			ch, fg, bg := state.Cell(col, row)
 			if bg != terminal.DefaultBG {
-				var uniform *image.Uniform
-				switch bg {
-				case terminal.Red:
-					uniform = image.NewUniform(TerminalColorRed)
-				case terminal.Green:
-					uniform = image.NewUniform(TerminalColorGreen)
-				case terminal.Blue:
-					uniform = image.NewUniform(TerminalColorBlue)
-				case terminal.Yellow:
-					uniform = image.NewUniform(TerminalColorYellow)
-				case terminal.Magenta:
-					uniform = image.NewUniform(TerminalColorMagenta)
-				case terminal.Cyan:
-					uniform = image.NewUniform(TerminalColorCyan)
-				case terminal.LightGrey:
-					uniform = image.NewUniform(TerminalColorLightGrey)
-				case terminal.DarkGrey:
-					uniform = image.NewUniform(TerminalColorDarkGrey)
-				case terminal.LightRed:
-					uniform = image.NewUniform(TerminalColorLightRed)
-				case terminal.LightGreen:
-					uniform = image.NewUniform(TerminalColorLightGreen)
-				case terminal.LightYellow:
-					uniform = image.NewUniform(TerminalColorLightYellow)
-				case terminal.LightBlue:
-					uniform = image.NewUniform(TerminalColorLightBlue)
-				case terminal.LightMagenta:
-					uniform = image.NewUniform(TerminalColorLightMagenta)
-				case terminal.LightCyan:
-					uniform = image.NewUniform(TerminalColorLightCyan)
-				case terminal.White:
-					uniform = image.NewUniform(TerminalColorWhite)
-				case terminal.DefaultFG:
-					uniform = image.White
-				default:
-					uniform = image.Transparent
-				}
+				uniform := image.NewUniform(color.Term256{Val: uint8(bg)})
 				draw.Draw(paletted, image.Rect(5+col*int(fb.XMax-fb.XMin), row*int(fb.YMax-fb.YMin)-int(fb.YMin), 5+(col+1)*int(fb.XMax-fb.XMin), (row+1)*int(fb.YMax-fb.YMin)-int(fb.YMin)), uniform, image.ZP, draw.Src)
 			}
 			switch fg {
-			case terminal.Red:
-				c.SetSrc(image.NewUniform(TerminalColorRed))
-			case terminal.Green:
-				c.SetSrc(image.NewUniform(TerminalColorGreen))
-			case terminal.Blue:
-				c.SetSrc(image.NewUniform(TerminalColorBlue))
-			case terminal.Yellow:
-				c.SetSrc(image.NewUniform(TerminalColorYellow))
-			case terminal.Magenta:
-				c.SetSrc(image.NewUniform(TerminalColorMagenta))
-			case terminal.Cyan:
-				c.SetSrc(image.NewUniform(TerminalColorCyan))
-			case terminal.LightGrey:
-				c.SetSrc(image.NewUniform(TerminalColorLightGrey))
-			case terminal.DarkGrey:
-				c.SetSrc(image.NewUniform(TerminalColorDarkGrey))
-			case terminal.LightRed:
-				c.SetSrc(image.NewUniform(TerminalColorLightRed))
-			case terminal.LightGreen:
-				c.SetSrc(image.NewUniform(TerminalColorLightGreen))
-			case terminal.LightYellow:
-				c.SetSrc(image.NewUniform(TerminalColorLightYellow))
-			case terminal.LightBlue:
-				c.SetSrc(image.NewUniform(TerminalColorLightBlue))
-			case terminal.LightMagenta:
-				c.SetSrc(image.NewUniform(TerminalColorLightMagenta))
-			case terminal.LightCyan:
-				c.SetSrc(image.NewUniform(TerminalColorLightCyan))
-			case terminal.White:
-				c.SetSrc(image.NewUniform(TerminalColorWhite))
 			case terminal.DefaultFG:
 				c.SetSrc(image.White)
 			case terminal.DefaultBG:
 				c.SetSrc(image.Black)
 			default:
-				// TODO??
-				c.SetSrc(image.NewUniform(TerminalColorGray))
+				c.SetSrc(image.NewUniform(color.Term256{Val: uint8(fg)}))
 			}
 			str := string(ch)
 			_, err = c.DrawString(str, freetype.Pt(5+col*int(fb.XMax-fb.XMin), (row+1)*int(fb.YMax-fb.YMin)))
