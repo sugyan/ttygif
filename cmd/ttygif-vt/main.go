@@ -6,9 +6,10 @@ import (
 	"code.google.com/p/freetype-go/freetype/truetype"
 	"flag"
 	"fmt"
-	"github.com/errnoh/term.color"
+	tcolor "github.com/errnoh/term.color"
 	"github.com/sugyan/ttygif"
 	"image"
+	"image/color"
 	"image/color/palette"
 	"image/draw"
 	"image/gif"
@@ -127,6 +128,7 @@ func generateGIF(input string, output string, speed float64) (err error) {
 }
 
 func capture(state *terminal.State) (paletted *image.Paletted, err error) {
+	cursorX, cursorY := state.Cursor()
 	fb := font.Bounds(fontSize)
 
 	paletted = image.NewPaletted(image.Rect(0, 0, 80*int(fb.XMax-fb.XMin)+10, 24*int(fb.YMax-fb.YMin)), palette.WebSafe)
@@ -138,9 +140,15 @@ func capture(state *terminal.State) (paletted *image.Paletted, err error) {
 	c.SetClip(paletted.Bounds())
 	for row := 0; row < 24; row++ {
 		for col := 0; col < 80; col++ {
+			cursor := col == cursorX && row == cursorY
 			ch, fg, bg := state.Cell(col, row)
-			if bg != terminal.DefaultBG {
-				uniform := image.NewUniform(color.Term256{Val: uint8(bg)})
+			if bg != terminal.DefaultBG || cursor {
+				var uniform *image.Uniform
+				if cursor {
+					uniform = image.NewUniform(color.Gray16{0x8888})
+				} else {
+					uniform = image.NewUniform(tcolor.Term256{Val: uint8(bg)})
+				}
 				draw.Draw(paletted, image.Rect(5+col*int(fb.XMax-fb.XMin), row*int(fb.YMax-fb.YMin)-int(fb.YMin), 5+(col+1)*int(fb.XMax-fb.XMin), (row+1)*int(fb.YMax-fb.YMin)-int(fb.YMin)), uniform, image.ZP, draw.Src)
 			}
 			switch fg {
@@ -149,7 +157,7 @@ func capture(state *terminal.State) (paletted *image.Paletted, err error) {
 			case terminal.DefaultBG:
 				c.SetSrc(image.Black)
 			default:
-				c.SetSrc(image.NewUniform(color.Term256{Val: uint8(fg)}))
+				c.SetSrc(image.NewUniform(tcolor.Term256{Val: uint8(fg)}))
 			}
 			str := string(ch)
 			_, err = c.DrawString(str, freetype.Pt(5+col*int(fb.XMax-fb.XMin), (row+1)*int(fb.YMax-fb.YMin)))
