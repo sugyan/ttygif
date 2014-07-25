@@ -7,7 +7,7 @@ ttyrec to animated GIF
 
 
 About ttyrec
-------
+------------
 
 see [http://0xcc.net/ttyrec/](http://0xcc.net/ttyrec/).
 
