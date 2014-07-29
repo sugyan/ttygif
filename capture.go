@@ -1,4 +1,4 @@
-package ttygif
+package main
 
 import (
 	"fmt"

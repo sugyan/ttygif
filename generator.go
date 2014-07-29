@@ -1,7 +1,8 @@
-package ttygif
+package main
 
 import (
 	"fmt"
+	"github.com/sugyan/ttyread"
 	"image/gif"
 	"io/ioutil"
 	"os"
@@ -9,116 +10,85 @@ import (
 	"time"
 )
 
-// TtyPlayCaptureProcessor type, which is the implementation of TtyPlayProcessor
-type TtyPlayCaptureProcessor struct {
-	timestamp TimeVal
-	delays    []int
-	tempDir   string
-	worker    *Worker
-	speed     float64
-}
-
-// Process captures and append images
-func (t *TtyPlayCaptureProcessor) Process(diff TimeVal) (err error) {
-	delay := int(float64(diff.Sec*1000000+diff.Usec)/t.speed) / 10000
-	if delay == 0 {
-		return nil
-	}
-	t.delays = append(t.delays, delay)
-	t.timestamp = t.timestamp.Add(diff)
-
-	// capture and append to images
-	imgPath := filepath.Join(t.tempDir, fmt.Sprintf("%03d_%06d", t.timestamp.Sec, t.timestamp.Usec))
-	fileType, err := CaptureImage(imgPath)
-	if err != nil {
-		return
-	}
-	t.worker.AddTargetFile(imgPath, fileType)
-	return nil
-}
-
-// NewTtyPlayCaptureProcessor returns TtyPlayCaptureProcessor instance
-func NewTtyPlayCaptureProcessor(speed float64) (t *TtyPlayCaptureProcessor, err error) {
-	tempDir, err := ioutil.TempDir("", "ttygif")
-	if err != nil {
-		return
-	}
-	return &TtyPlayCaptureProcessor{
-		tempDir: tempDir,
-		speed:   speed,
-		worker:  NewWorker(),
-	}, nil
-}
-
-// RemoveTempDirectory remove tempDir
-func (t *TtyPlayCaptureProcessor) RemoveTempDirectory() (err error) {
-	if err = os.RemoveAll(t.tempDir); err != nil {
-		return
-	}
-	return nil
-}
-
 // GifGenerator type
 type GifGenerator struct {
-	speed float64
+	Speed  float64
+	NoLoop bool
 }
 
 // NewGifGenerator returns GifGenerator instance
 func NewGifGenerator() *GifGenerator {
-	return &GifGenerator{speed: 1.0}
-}
-
-// Speed sets the speed
-func (g *GifGenerator) Speed(speed float64) {
-	g.speed = speed
+	return &GifGenerator{Speed: 1.0}
 }
 
 // Generate writes to outFile an animated GIF
 func (g *GifGenerator) Generate(inFile string, outFile string) (err error) {
-	capturer, err := NewTtyPlayCaptureProcessor(g.speed)
+	tempDir, err := ioutil.TempDir("", "ttygif")
 	if err != nil {
 		return
 	}
-	defer capturer.RemoveTempDirectory()
+	defer os.RemoveAll(tempDir)
+
+	var (
+		delays    []int
+		timestamp ttyread.TimeVal
+	)
+	worker := NewWorker()
 	// play and capture
-	player := NewTtyPlayer()
-	player.Processor(capturer)
-	err = player.Play(inFile)
+	err = Play(inFile, func(diff ttyread.TimeVal) (err error) {
+		delay := int(float64(diff.Sec*1000000+diff.Usec)/g.Speed) / 10000
+		if delay == 0 {
+			return nil
+		}
+		delays = append(delays, delay)
+		timestamp = timestamp.Add(diff)
+
+		// capture and append to images
+		imgPath := filepath.Join(tempDir, fmt.Sprintf("%03d_%06d", timestamp.Sec, timestamp.Usec))
+		fileType, err := CaptureImage(imgPath)
+		if err != nil {
+			return
+		}
+		worker.AddTargetFile(imgPath, fileType)
+		return nil
+	})
 	if err != nil {
 		return
 	}
-	// get paletted images from capture fiels
+	// get paletted images from capture files
 	progress := make(chan struct{})
 	go func() {
 	Loop:
 		for {
 			select {
-			case _, ok := <-progress:
-				if !ok {
-					break Loop
-				}
+			case <-time.Tick(time.Millisecond * 500):
 				print(".")
-			case <-time.After(time.Second):
-				print(".")
+			case <-progress:
+				break Loop
 			}
 		}
 		print("\r")
 	}()
-	images, err := capturer.worker.GetAllImages(progress)
+	images, err := worker.GetAllImages()
 	if err != nil {
 		return
 	}
+	close(progress)
+
 	// generate GIF file
 	file, err := os.Create(outFile)
 	if err != nil {
 		return
 	}
 	defer file.Close()
-	err = gif.EncodeAll(file, &gif.GIF{
-		Image:     images,
-		Delay:     capturer.delays,
-		LoopCount: -1,
-	})
+	opts := gif.GIF{
+		Image: images,
+		Delay: delays,
+	}
+	if g.NoLoop {
+		opts.LoopCount = 1
+	}
+	err = gif.EncodeAll(file, &opts)
 	if err != nil {
 		return
 	}
