@@ -29,3 +29,9 @@ Usage
 * `out`: output animated GIF file name (default: `"tty.gif"`)
 * `s`: play speed (default: `1.0`)
 * `noloop`: play only once (default: `false`)
+
+
+See also
+--------
+
+- https://github.com/sugyan/ttyrec2gif
